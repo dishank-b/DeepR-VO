@@ -53,9 +53,8 @@ def load_images(sequence_no):
 def gen_data(poses_array, image_array):
 	"""Generate Training Data"""
 	# if name=="train":
-	input_list = []
-	output_list = []
-	for j in xrange(1,4):
+	data_list = []
+	for j in xrange(1,3):
 		for i in range(len(poses_array)-j):
 			R_cam = np.dot(np.linalg.inv(poses_array[i][:,:3]),poses_array[i+j][:,:3])
 			T_cam = np.dot(np.linalg.inv(poses_array[i][:,:3]),poses_array[i+j][:,3:4]-poses_array[i][:,3:4])
@@ -64,25 +63,20 @@ def gen_data(poses_array, image_array):
 			dz = T_cam[2][0]
 			dx = T_cam[0][0]
 			dchange = np.array([dz, dx, dangle_deg])
-			output_list.append(dchange)
-			traning_example = np.array([image_array[i], image_array[i+j]])
-			input_list.append(traning_example)
-	input_array = np.array(input_list)
-	output_array = np.array(output_list)
-	return input_array, output_array
+			traning_example = np.array([image_array[i], image_array[i+j], dchange])
+			data_list.append(traning_example)
+	data_array = np.array(data_list)
+	return data_array
 
 poses_path = "./raw_data/poses/"
 saving_path = "./training_testing_data/414x126_images/"
 
-for sequence_no in ["00","01","02","03","04","05","06","07"]:
+for sequence_no in ["00","01","02","03","04","05","06","07","08","09","10"]:
 	poses = load_poses(str(sequence_no)+".txt")
 	images_path = "./raw_data/sequences/"+str(sequence_no)+"/image_2/*.png"
 	image_array = load_images(str(sequence_no))
-	input_array, output_array = gen_data(poses, image_array)
-	print input_array, output_array
-	np.save(saving_path+sequence_no+"_input.npy", input_array)
-	np.save(saving_path+sequence_no+"_output.npy", output_array)
-	# print "trainnig length", training_array[2:5,0].shape
+	training_array= gen_data(poses, image_array)
+	np.save(saving_path+sequence_no+".npy", training_array)
 	print "Trainnig data stored", sequence_no
 	
 

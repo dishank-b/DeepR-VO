@@ -6,14 +6,15 @@ import os, csv
 from PIL import Image
 
 
-data_path = "/home/deeplearning/work/py-faster-rcnn/VO_2.2/dataset/training_npy"
-result_path = "/home/deeplearning/work/py-faster-rcnn/VO_2.2/results/output"
-log_path = "/home/deeplearning/work/py-faster-rcnn/VO_2.2/tensorflow_logs/6"
+data_path = "/media/deeplearning/Data/kitti_dataset/dataset/training_npy_new"
+test_path = "/media/deeplearning/Data/kitti_dataset/dataset/training_npy_new/test"
+result_path = "/home/deeplearning/work/py-faster-rcnn/VO_2.2/results/output_dummy"
+log_path = "./kuch_bhi/"
 
 def check_data_img(nparray):
-	img = Image.fromarray(nparray.reshape([256, 256, 3]), 'RGB')
-	img.show()
-	#img.close()
+    img = Image.fromarray(nparray.reshape([256, 256, 3]), 'RGB')
+    img.show()
+    #img.close()
 
 def weight_variable(shape, name):
     #initial = tf.truncated_normal(shape, stddev=0.1)
@@ -140,7 +141,7 @@ def siamese_network_model(x_image):
 
 def fc_network_model(siamese_output1, siamese_output2, drop7_prob):
     with tf.name_scope("concat_out"):
-        concat_out = tf.concat(1, [siamese_output1, siamese_output2], name="concat_out")
+        concat_out = tf.concat([siamese_output1, siamese_output2],1,  name="concat_out")
 
     # concat_out has 8192 activations
 
@@ -186,8 +187,8 @@ def train(trainX, trainY, validationX, validationY):
     sess = tf.Session()
 
     with tf.name_scope("images"):
-        x_image_t = tf.placeholder(tf.float64, [None, 256, 844, 1], name="image_t")
-        x_image_t_1 = tf.placeholder(tf.float64, [None, 256, 844, 1], name="image_t_1")
+        x_image_t = tf.placeholder(tf.float32, [None, 256, 844, 1], name="image_t")
+        x_image_t_1 = tf.placeholder(tf.float32, [None, 256, 844, 1], name="image_t_1")
 
     with tf.name_scope("labels"):    
         target = tf.placeholder(tf.float32, [None, 2], name="target")
@@ -205,7 +206,7 @@ def train(trainX, trainY, validationX, validationY):
 
     with tf.name_scope("loss_function"):
     #SEE REDUCE_MEAN vs REDUCE_SUM
-        l2_loss =  tf.reduce_mean(tf.square(tf.sub(final_output, target)))
+        l2_loss =  tf.reduce_mean(tf.square(tf.subtract(final_output, target)))
         #l2_loss_avg = tf.reduce_mean(tf.square(tf.sub(final_output, target)))
     
     with tf.name_scope("optimizer"):
@@ -218,24 +219,26 @@ def train(trainX, trainY, validationX, validationY):
     tf.add_to_collection('train_vo', final_output)
 
     # collect summary of these operations
-    train_summ = tf.scalar_summary("training_loss", l2_loss)
+    train_summ = tf.summary.scalar("training_loss", l2_loss)
     #eval_summ = tf.scalar_summary("validation_loss", l2_loss)
     #summary_op = tf.merge_all_summaries()
 
     if os.path.exists("weights/train_vo"):
-    	saver = tf.train.import_meta_graph('weights/train_vo.meta')
-    	saver.restore(sess, "weights/train_vo")
-    	print "Restoring saved weights....."
+        saver = tf.train.import_meta_graph('weights/train_vo.meta')
+        saver.restore(sess, "weights/train_vo")
+        print "Restoring saved weights....."
     else:
-    	sess.run(tf.initialize_all_variables())
-        writer = tf.train.SummaryWriter(log_path, graph=tf.get_default_graph()) # for tensorboard
+        sess.run(tf.initialize_all_variables())
+        # writer = tf.train.SummaryWriter(log_path, graph=tf.get_default_graph()) # for tensorboard
+        writer = tf.summary.FileWriter(log_path)
+        writer.add_graph(sess.graph)
         saver = tf.train.Saver() # saving mechanism for graph and variables
         print "Initializing variables, no saved weights found ...."
     
-    minibatch = 4
+    minibatch = 10
     #index = range(len(train_labels))
 
-    for epoch in range(100):
+    for epoch in range(80):
         train_data, train_labels = shuffle(train_data, train_labels)
         #eval_data, eval_labels = shuffle(eval_data, eval_labels)
         for k in xrange(0, len(train_labels), minibatch):   
@@ -252,20 +255,20 @@ def train(trainX, trainY, validationX, validationY):
                 writer.add_summary(train_summary, itr) # append summary     
                 print "interations: ", itr 
 
-            if (itr % 1000 == 0):
-                l2_loss_avg = 0
-                for mark in xrange(0, len(eval_labels), minibatch):   
-                    batch_input, batch_output = eval_data[mark : mark + minibatch] , eval_labels[mark : mark + minibatch] 
-                    batch_input = np.asarray([[i[0], i[1]] for i in batch_input])
-                    batch_input = normalize(batch_input)
-                    batch_input = batch_input[:, :, :, :, np.newaxis]
-                    batch_output = np.asarray([[i[0], i[1]] for i in batch_output])
-                    #_, eval_summary = sess.run([l2_loss, eval_summ], feed_dict = {x_image_t: batch_input[:,0], x_image_t_1: batch_input[:,1], target: batch_output, drop7_prob: 1.0 })    
-                    l2_loss_avg = l2_loss_avg + sess.run(l2_loss, feed_dict = {x_image_t: batch_input[:, 0], x_image_t_1: batch_input[:,1], target: batch_output, drop7_prob: 1.0 })
+            # if (itr % 1000 == 0):
+            #     l2_loss_avg = 0
+            #     for mark in xrange(0, len(eval_labels), minibatch):   
+            #         batch_input, batch_output = eval_data[mark : mark + minibatch] , eval_labels[mark : mark + minibatch] 
+            #         batch_input = np.asarray([[i[0], i[1]] for i in batch_input])
+            #         batch_input = normalize(batch_input)
+            #         batch_input = batch_input[:, :, :, :, np.newaxis]
+            #         batch_output = np.asarray([[i[0], i[1]] for i in batch_output])
+            #         #_, eval_summary = sess.run([l2_loss, eval_summ], feed_dict = {x_image_t: batch_input[:,0], x_image_t_1: batch_input[:,1], target: batch_output, drop7_prob: 1.0 })    
+            #         l2_loss_avg = l2_loss_avg + sess.run(l2_loss, feed_dict = {x_image_t: batch_input[:, 0], x_image_t_1: batch_input[:,1], target: batch_output, drop7_prob: 1.0 })
                 
-                l2_loss_avg = l2_loss_avg/((int)(len(eval_labels))/minibatch)
-                eval_summ = sess.run(tf.scalar_summary("validation_loss", l2_loss_avg))
-                writer.add_summary(eval_summ, itr)
+            #     l2_loss_avg = l2_loss_avg/((int)(len(eval_labels))/minibatch)
+            #     eval_summ = sess.run(tf.scalar_summary("validation_loss", l2_loss_avg))
+            #     writer.add_summary(eval_summ, itr)
 
         print "epoch: ", epoch
         if (epoch % 10 == 0): 
@@ -275,78 +278,64 @@ def train(trainX, trainY, validationX, validationY):
 
 def test():
 
-	# reset graph if any graph was produced before this serving.
-	tf.reset_default_graph()
-	sess = tf.Session()
+    # reset graph if any graph was produced before this serving.
+    tf.reset_default_graph()
+    sess = tf.Session()
 
-	saver = tf.train.import_meta_graph('weights/train_vo.meta')
-	saver.restore(sess, "weights/train_vo")
+    saver = tf.train.import_meta_graph('weights/train_vo.meta')
+    saver.restore(sess, "weights/train_vo")
 
-	# recapitulate operations 
-	x_image_t = tf.get_collection('train_vo')[0]
-	x_image_t_1 = tf.get_collection('train_vo')[1]
-	drop7_prob = tf.get_collection('train_vo')[2]
-	final_output = tf.get_collection('train_vo')[3]
+    # recapitulate operations 
+    x_image_t = tf.get_collection('train_vo')[0]
+    x_image_t_1 = tf.get_collection('train_vo')[1]
+    drop7_prob = tf.get_collection('train_vo')[2]
+    final_output = tf.get_collection('train_vo')[3]
 
-	test_files = ["05.npy", "09.npy"]
-	for file in test_files:
-		print "testing: ", file
-		test_load = np.load(data_path + "/" + file)
-		test_data = test_load[:, 0:2]
-		test_labels = test_load[:, 2]
+    test_files = ["00.npy"]
+    for file in test_files:
+        print "testing: ", file
+        test_load = np.load(test_path + "/" + file)
+        test_data = test_load[:, 0:2]
+        test_labels = test_load[:, 2]
 
-		f = open(result_path + "/test_" + file[:file.index(".")] + ".csv", "wb")
-		csvwriter = csv.writer(f, delimiter = ',', quotechar = '|', quoting = csv.QUOTE_MINIMAL)
+        f = open(result_path + "/test_" + file[:file.index(".")] + ".csv", "wb")
+        #csvwriter = csv.writer(f, delimiter = ',', quotechar = '|', quoting = csv.QUOTE_MINIMAL)
 
-		for i in range(len(test_labels)):
+        for i in range(len(test_labels)):
 
-			data_input = np.asarray([test_data[i][0], test_data[i][1]])
-			data_input = normalize(data_input)
+            data_input = np.asarray([test_data[i][0], test_data[i][1]])
+            data_input = normalize(data_input)
 
-			image_t = data_input[0]
-			image_t = image_t[np.newaxis, :]
-			image_t_1 = data_input[1]
-			image_t_1 = image_t_1[np.newaxis, :]
+            image_t = data_input[0]
+            image_t = image_t[np.newaxis, :, :, np.newaxis]
+            image_t_1 = data_input[1]
+            image_t_1 = image_t_1[np.newaxis, :, :, np.newaxis]
 
-			regr_output = sess.run(final_output, feed_dict = {x_image_t: image_t, x_image_t_1: image_t_1, drop7_prob: 1.0})
-			csvwriter.writerow([regr_output[0][0], regr_output[0][1]])
-			print regr_output
-		
-		f.close()	
+            regr_output = sess.run(final_output, feed_dict = {x_image_t: image_t, x_image_t_1: image_t_1, drop7_prob: 1.0})
+            #csvwriter.writerow([regr_output[0][0], regr_output[0][1]])
+            print regr_output
+        
+        f.close()   
 
-	sess.close()
+    sess.close()
     #return regr_output
 
 if __name__ == "__main__":
-	
-	train_full = np.load(data_path+'/training_set.npy')
-	train_data = train_full[:, 0:2]
-	train_labels = train_full[:, 2]
+    
+    train_full = np.load(data_path+'/training_set.npy')
+    # print train_full.shape
+    train_data = train_full[:, 0:2]
+    train_labels = train_full[:, 2]
+    # print train_data.shape, train_labels.shape
 
-	eval_full = np.load(data_path+'/test_set.npy')
-	eval_data = eval_full[:, 0:2]
-	eval_labels = eval_full[:, 2]
-	
-	train(train_data, train_labels, eval_data, eval_labels)
+    eval_full = np.load(data_path+'/test/00.npy')
+    eval_data = eval_full[:, 0:2]
+    eval_labels = eval_full[:, 2]
 
-	# test()
+    # # #dummy
+    # # eval_data = 1
+    # # eval_labels = 1
+    
+    train(train_data, train_labels, eval_data, eval_labels)
 
-	# test_files = ["05.npy", "02.npy", "09.npy"]
-	# for file in test_files:
-	# 	print "testing: ", file
-	# 	test_load = np.load(data_path + "/" + file)
-	# 	test_data = test_load[:, 0:2]
-	# 	test_labels = test_load[:, 2]
-
-	# 	f = open(result_path + "/test_" + file[:file.index(".")] + ".csv", "wb")
-	# 	csvwriter = csv.writer(f, delimiter = ',', quotechar = '|', quoting = csv.QUOTE_MINIMAL)
-		
-	# 	for i in range(len(test_labels)):
-	# 		regr_output = test(test_data[i])
-	# 		csvwriter.writerow([regr_output[0][0], regr_output[0][1]])
-	# 		print regr_output
-
-	
-
-
-	
+    #test()
