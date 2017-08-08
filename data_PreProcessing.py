@@ -20,29 +20,29 @@ import sys
 #     return padded_image
 
 def load_poses(file_name):
-    """Load ground truth poses from file."""
-    pose_file = os.path.join(poses_path+ file_name)
-    poses = []
-    # Read and parse the poses
-    with open(pose_file, 'r') as f:
-        for line in f.readlines():
-            T = np.fromstring(line, dtype=float, sep=' ')
-            T = T.reshape(3, 4)
-            poses.append(T)
-            # print T
-    poses_array = np.array(poses)
-    return poses_array
+	"""Load ground truth poses from file."""
+	pose_file = os.path.join(poses_path+ file_name)
+	poses = []
+	# Read and parse the poses
+	with open(pose_file, 'r') as f:
+		for line in f.readlines():
+			T = np.fromstring(line, dtype=float, sep=' ')
+			T = T.reshape(3, 4)
+			poses.append(T)
+			# print T
+	poses_array = np.array(poses)
+	return poses_array
 
 def load_images(sequence_no):
 	# """Load left stereo images from file. Returns a array of all images in a given sequece."""
-    image_list = []
-    images_names = sorted(glob.glob(images_path))
-    for i in images_names:
-    	image = cv2.imread(i)
-        resize_image  = cv2.resize(image, dsize = (414, 126), interpolation = cv2.INTER_NEAREST)
-    	image_list.append(resize_image)
-    images_array = np.array(image_list)
-    return images_array
+	image_list = []
+	images_names = sorted(glob.glob(images_path))
+	for i in images_names:
+		image = cv2.imread(i)
+		resize_image  = cv2.resize(image, dsize = (620, 188), interpolation = cv2.INTER_NEAREST)
+		image_list.append(resize_image)
+	images_array = np.array(image_list)
+	return images_array
 
 ######Conversion from world frame to camera frame#########
 #using Xᶜᵃᵐₜ₋₁ = (R⁻¹ₜ₋₁*Rₜ)*Xₜ + R⁻¹ₜ₋₁*(Tₜ - Tₜ₋₁)
@@ -54,7 +54,7 @@ def gen_data(poses_array, image_array):
 	"""Generate Training Data"""
 	# if name=="train":
 	data_list = []
-	for j in xrange(1,3):
+	for j in xrange(1,4):
 		for i in range(len(poses_array)-j):
 			R_cam = np.dot(np.linalg.inv(poses_array[i][:,:3]),poses_array[i+j][:,:3])
 			T_cam = np.dot(np.linalg.inv(poses_array[i][:,:3]),poses_array[i+j][:,3:4]-poses_array[i][:,3:4])
@@ -65,19 +65,45 @@ def gen_data(poses_array, image_array):
 			dchange = np.array([dz, dx, dangle_deg])
 			traning_example = np.array([image_array[i], image_array[i+j], dchange])
 			data_list.append(traning_example)
+			dchange = np.array([dz, -1*dx, -1*dangle_deg])
+			traning_example = np.array([cv2.flip(image_array[i],1), cv2.flip(image_array[i+j],1), dchange])
+			data_list.append(traning_example)
 	data_array = np.array(data_list)
 	return data_array
 
-poses_path = "./raw_data/poses/"
-saving_path = "./training_testing_data/414x126_images/"
+# def gen_data(poses_array, image_array, data_list):
+# 	"""Generate Training Data"""
+# 	# if name=="train":
+# 	for j in xrange(1,4):
+# 		for i in range(len(poses_array)-j):
+# 			R_cam = np.dot(np.linalg.inv(poses_array[i][:,:3]),poses_array[i+j][:,:3])
+# 			T_cam = np.dot(np.linalg.inv(poses_array[i][:,:3]),poses_array[i+j][:,3:4]-poses_array[i][:,3:4])
+# 			dangle_rad = np.arctan(-R_cam[2][0]/(R_cam[2][1]**2+R_cam[2][2]**2)**0.5)
+# 			dangle_deg = dangle_rad*180/np.pi
+# 			dz = T_cam[2][0]
+# 			dx = T_cam[0][0]
+# 			dchange = np.array([dz, dx, dangle_deg])
+# 			traning_example = np.array([image_array[i], image_array[i+j], dchange])
+# 			data_list.append(traning_example)
+# 	return data_list
 
-for sequence_no in ["00","01","02","03","04","05","06","07","08","09","10"]:
+
+poses_path = "./raw_data/poses/"
+saving_path = "./training_testing_data/620x188_images/"
+
+train_seq = ["00","01","02","03","04","05","06","07","08","09","10"]
+
+# data_list=[]
+for sequence_no in train_seq:
 	poses = load_poses(str(sequence_no)+".txt")
 	images_path = "./raw_data/sequences/"+str(sequence_no)+"/image_2/*.png"
 	image_array = load_images(str(sequence_no))
-	training_array= gen_data(poses, image_array)
-	np.save(saving_path+sequence_no+".npy", training_array)
-	print "Trainnig data stored", sequence_no
+	data_array= gen_data(poses, image_array)
+	np.save(saving_path+sequence_no+".npy", data_array)
+	print sequence_no, "Done.", "Shape:-",  data_array.shape
+# data_array = np.array(data_list)
+
+# print "Trainnig data stored", data_array.shape
 	
 
 
